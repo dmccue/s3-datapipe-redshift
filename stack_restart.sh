@@ -77,5 +77,5 @@ ansible-playbook -v ansible/cloudformation.yml || ansibleError
 # sleep 5
 # aws datapipeline list-runs --pipeline-id ${pipelineID}
 # ec2floatingip=$(aws cloudformation describe-stacks --stack-name ${stackname} --query "Stacks[0].Outputs[?OutputKey=='InstanceIPAddress'].OutputValue" --output text)
-# ssh -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ~/Downloads/dmccue-eu-west.pem ec2-user@${ec2floatingip} uptime && \
+# ssh -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ~/Downloads/-eu-west.pem ec2-user@${ec2floatingip} uptime && \
 # echo Successful ssh connection
