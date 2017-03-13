@@ -1,0 +1,15 @@
+Region: eu-west-1
+# Bucket for storing /incoming and /logs for DataPipeline
+BucketName: dsm-s3-to-redshift
+# Tag for resources
+Owner: dsm
+# Stack name to appear in CloudFormation
+StackName: dsm-test
+# Bucket to hold cloudformation templates during creation/update
+CFBucketName: dsm-cf-templates
+CFBucketFolder: S3toDPtoRS
+CFTemplateName: s3-datapipe-redshift.yml
+TemplateURL: "https://s3-{{ Region }}.amazonaws.com/{{ CFBucketName }}/{{ CFBucketFolder }}/{{ CFTemplateName }}"
+# Uncomment these to enable stack SNS notifications
+#SNSEmail: youremailhere@yourdomain.com
+#SNSAlarmTopicName: dsm-CFAlarm

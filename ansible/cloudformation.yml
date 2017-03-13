@@ -1,0 +1,129 @@
+---
+- name: Provision Stack
+  hosts: localhost
+  connection: local
+  vars_files:
+    - vars.yml
+
+  tasks:
+
+  - name: Create alarm SNS topic
+    sns_topic:
+      name: "{{ SNSAlarmTopicName }}"
+      state: present
+      region: "{{ Region }}"
+      display_name: "Alarm SNS topic"
+      subscriptions:
+        - endpoint: "{{ SNSEmail }}"
+          protocol: "email"
+    register: SNSAlarmTopic
+    when: SNSEmail is defined and SNSAlarmTopicName is defined
+
+  - name: Set SNS ARN to None if disabled
+    set_fact: SNSAlarmTopic="{{ SNSAlarmTopic | combine({'sns_arn':None}) }}"
+    when: SNSEmail is not defined or SNSAlarmTopicName is not defined
+
+  - name: Delete S3 CFtemplate bucket
+    s3_bucket:
+      name: "{{ CFBucketName }}"
+      region: "{{ Region }}"
+      force: yes
+      state: absent
+
+  - name: Create S3 CFtemplate bucket
+    s3_bucket:
+      name: "{{ CFBucketName }}"
+      region: "{{ Region }}"
+
+  - name: Copy templates to S3 CFtemplate bucket
+    s3_sync:
+      permission: public-read
+      file_root: ../templates
+      bucket: "{{ CFBucketName }}"
+      key_prefix: "{{ CFBucketFolder }}/"
+      file_change_strategy: force
+      include: '*.yml'
+    register: s3Sync
+
+  - name: Validate CF
+    shell: aws cloudformation validate-template --template-url "{{ TemplateURL }}"
+
+  - name: Launch Cloudformation
+    cloudformation:
+      stack_name: "{{ StackName }}"
+      state: present
+      region: "{{ Region }}"
+      disable_rollback: false
+      notification_arns: "{{ SNSAlarmTopic.sns_arn }}"
+      template_url: "{{ TemplateURL }}"
+      template_parameters:
+        BucketName: "{{ BucketName }}"
+      tags:
+        Owner: "{{ Owner }}"
+        StackName: "{{ StackName }}"
+    register: CFStack
+
+  - name: Get stack outputs
+    debug: msg={{ CFStack.stack_outputs }}
+    when: CFStack | success
+
+  - name: Write stack debug details
+    copy: content="{{ CFStack | to_nice_yaml }}" dest="../logs/{{ StackName }}.log"
+    when: CFStack | success
+
+  - name: Get full stack details
+    cloudformation_facts:
+      stack_name: "{{ StackName }}"
+      stack_resources: true
+      stack_policy: true
+    register: CFStackFull
+    when: CFStack | success
+
+  - name: Write stack full debug details
+    copy: content="{{ CFStackFull | to_nice_yaml }}" dest="../logs/{{ StackName }}-full.log"
+    when: CFStack | success
+
+  - name: Verify Stack status
+    fail: msg="Failed stack - {{ item.logical_resource_id }} = {{ item.status }}"
+    with_items: "{{ CFStack.stack_resources }}"
+    when: item.status != "UPDATE_COMPLETE" and item.status != "CREATE_COMPLETE"
+
+  - name: Verify RS endpoint
+    wait_for:
+      host: "{{ CFStack.stack_outputs['outRSEndpoint'] }}"
+      port: "{{ CFStack.stack_outputs['outRSEndpointPort'] }}"
+      state: started
+
+  - name: Output example psql command
+    debug: msg="PGPASSWORD={{ CFStack.stack_outputs['outRSPassword'] }} $(which psql) -h {{ CFStack.stack_outputs['outRSEndpoint'] }} -p {{ CFStack.stack_outputs['outRSEndpointPort'] }} -U {{ CFStack.stack_outputs['outRSUsername'] }} -d {{ CFStack.stack_outputs['outRSDatabaseName'] }} -c '\dt'"
+
+  - name: Find existing tables
+    shell: PGPASSWORD={{ CFStack.stack_outputs['outRSPassword'] }} $(which psql) -h {{ CFStack.stack_outputs['outRSEndpoint'] }} -p {{ CFStack.stack_outputs['outRSEndpointPort'] }} -U {{ CFStack.stack_outputs['outRSUsername'] }} -d {{ CFStack.stack_outputs['outRSDatabaseName'] }} -c '\dt'
+    register: psqlOUT
+
+  - name: Display existing tables
+    debug: msg="Existing tables{{ ':' }} {{ psqlOUT.stdout }}"
+
+  - name: Upload CSV to bucket
+    s3:
+      src: ../data/data.csv
+      bucket: "{{ CFStack.stack_outputs['outBucketName'] }}"
+      object: "/incoming/{{ ansible_date_time.epoch }}.csv"
+      mode: put
+
+  - name: Output example DataPipeline command
+    debug: msg="aws datapipeline list-runs --pipeline-id {{ CFStack.stack_outputs['outPipelineRef'] }}"
+
+  - name: Wait until pipeline shows finished
+    action: shell aws datapipeline list-runs --pipeline-id {{ CFStack.stack_outputs['outPipelineRef'] }} --output text | grep -v FINISHED || true
+    register: result
+    until: result.stdout_lines|length == 0
+    retries: 20
+    delay: 60
+
+  - name: Get table contents
+    shell: PGPASSWORD={{ CFStack.stack_outputs['outRSPassword'] }} /usr/local/bin/psql -h {{ CFStack.stack_outputs['outRSEndpoint'] }} -p {{ CFStack.stack_outputs['outRSEndpointPort'] }} -U {{ CFStack.stack_outputs['outRSUsername'] }} -d {{ CFStack.stack_outputs['outRSDatabaseName'] }} -c 'select * from test_users;'
+    register: result
+
+  - name: Display table status
+    debug: msg="Table status{{ ':' }} {{ result.stdout }}"

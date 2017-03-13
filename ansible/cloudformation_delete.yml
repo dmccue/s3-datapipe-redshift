@@ -1,0 +1,29 @@
+---
+- name: Delete Stack
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - vars.yml
+
+  tasks:
+
+  - name: Delete bucket contents & bucket
+    s3_bucket:
+      name: "{{ BucketName }}"
+      region: "{{ Region }}"
+      force: yes
+      state: absent
+
+  - name: Delete CF template bucket
+    s3_bucket:
+      name: "{{ CFBucketName }}"
+      region: "{{ Region }}"
+      force: yes
+      state: absent
+
+  - name: Delete Cloudformation
+    cloudformation:
+      stack_name: "{{ StackName }}"
+      state: absent
+      region: "{{ Region }}"

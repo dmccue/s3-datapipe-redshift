@@ -1,0 +1,89 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: Example S3 to DataPipeline to RedShift stack
+
+Parameters:
+
+
+  BucketName:
+    Description: Bucket name to create and monitor for csv files
+    Type: String
+    ConstraintDescription: must be a unique bucket name
+    Default: dsm-s3toredshift
+
+  RedShiftMasterUserPassword:
+    Description: The password that is associated with the master user account for the cluster that is being created.
+    Type: String
+    NoEcho: 'true'
+    Default: DefaultPassword1
+    ConstraintDescription: Requires at least one uppercase letter and one number
+
+  PipelineName:
+    Type: String
+    Description: Name of pipeline
+    Default: dsm-S3toRedShift
+
+
+Resources:
+
+
+  myRedShiftStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://s3-eu-west-1.amazonaws.com/dsm-cf-templates/S3toDPtoRS/nested-redshift.yml
+      TimeoutInMinutes: '10'
+      Parameters:
+        MasterUserPassword: !Ref RedShiftMasterUserPassword
+
+  myS3Stack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://s3-eu-west-1.amazonaws.com/dsm-cf-templates/S3toDPtoRS/nested-s3.yml
+      TimeoutInMinutes: '10'
+      Parameters:
+        BucketName: !Ref BucketName
+        PipelineName: !Ref PipelineName
+
+  myDPStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://s3-eu-west-1.amazonaws.com/dsm-cf-templates/S3toDPtoRS/nested-awsdp.yml
+      TimeoutInMinutes: '10'
+      Parameters:
+        BucketName: !GetAtt myS3Stack.Outputs.BucketRef
+        PipelineName: !Ref PipelineName
+        RSEndpoint: !GetAtt myRedShiftStack.Outputs.ClusterEndpoint
+        RSEndpointPort: !GetAtt myRedShiftStack.Outputs.ClusterEndpointPort
+        RSDatabaseName: !GetAtt myRedShiftStack.Outputs.DatabaseName
+
+
+Outputs:
+
+
+  outRSEndpoint:
+    Value: !GetAtt myRedShiftStack.Outputs.ClusterEndpoint
+
+  outRSEndpointPort:
+    Value: !GetAtt myRedShiftStack.Outputs.ClusterEndpointPort
+
+  outRSUsername:
+    Value: !GetAtt myRedShiftStack.Outputs.Username
+
+  outRSPassword:
+    Value: !GetAtt myRedShiftStack.Outputs.Password
+
+  outRSDatabaseName:
+    Value: !GetAtt myRedShiftStack.Outputs.DatabaseName
+
+  outBucketName:
+    Value: !GetAtt myS3Stack.Outputs.BucketRef
+
+  outPipelineRef:
+    Value: !GetAtt myDPStack.Outputs.PipelineRef
+
+
+# Sources:
+# https://qwiklabs.com/focuses/2875
+# https://aws.amazon.com/blogs/big-data/using-aws-lambda-for-event-driven-data-processing-pipelines/
+# https://docs.aws.amazon.com/redshift/latest/dg/tutorial-loading-data.html
+# https://github.com/awslabs/data-pipeline-samples/tree/master/samples/OnDemandWithLamdaFunctions
