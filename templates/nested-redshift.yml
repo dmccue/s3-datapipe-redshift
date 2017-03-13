@@ -71,30 +71,22 @@ Resources:
     Type: AWS::Redshift::Cluster
     DependsOn: AttachGateway
     Properties:
-      ClusterType:
-        Ref: ClusterType
+      ClusterType: !Ref ClusterType
       NumberOfNodes:
         Fn::If:
         - IsMultiNodeCluster
-        - Ref: NumberOfNodes
-        - Ref: AWS::NoValue
-      NodeType:
-        Ref: NodeType
-      DBName:
-        Ref: DatabaseName
-      MasterUsername:
-        Ref: MasterUsername
-      MasterUserPassword:
-        Ref: MasterUserPassword
-      ClusterParameterGroupName:
-        Ref: RedshiftClusterParameterGroup
+        - !Ref NumberOfNodes
+        - !Ref AWS::NoValue
+      NodeType: !Ref NodeType
+      DBName: !Ref DatabaseName
+      MasterUsername: !Ref MasterUsername
+      MasterUserPassword: !Ref MasterUserPassword
+      ClusterParameterGroupName: !Ref RedshiftClusterParameterGroup
       VpcSecurityGroupIds:
-      - Ref: SecurityGroup
-      ClusterSubnetGroupName:
-        Ref: RedshiftClusterSubnetGroup
+      - !Ref SecurityGroup
+      ClusterSubnetGroupName: !Ref RedshiftClusterSubnetGroup
       PubliclyAccessible: 'true'
-      Port:
-        Ref: PortNumber
+      Port: !Ref PortNumber
 
   RedshiftClusterParameterGroup:
     Type: AWS::Redshift::ClusterParameterGroup
@@ -109,8 +101,7 @@ Resources:
     Type: AWS::Redshift::ClusterSubnetGroup
     Properties:
       Description: Cluster subnet group
-      SubnetIds:
-      - Ref: PublicSubnet
+      SubnetIds: !Ref PublicSubnet
 
   VPC:
     Type: AWS::EC2::VPC
@@ -121,8 +112,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       CidrBlock: 10.0.0.0/24
-      VpcId:
-        Ref: VPC
+      VpcId: !Ref VPC
 
   myInternetGateway:
     Type: AWS::EC2::InternetGateway
@@ -130,49 +120,38 @@ Resources:
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
-      VpcId:
-        Ref: VPC
-      InternetGatewayId:
-        Ref: myInternetGateway
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref myInternetGateway
 
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId:
-        Ref: VPC
+      VpcId: !Ref VPC
 
   PublicRoute:
     Type: AWS::EC2::Route
     DependsOn: AttachGateway
     Properties:
-      RouteTableId:
-        Ref: PublicRouteTable
+      RouteTableId: !Ref PublicRouteTable
       DestinationCidrBlock: 0.0.0.0/0
-      GatewayId:
-        Ref: myInternetGateway
+      GatewayId: !Ref myInternetGateway
 
   PublicSubnetRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId:
-        Ref: PublicSubnet
-      RouteTableId:
-        Ref: PublicRouteTable
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
 
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Security group
       SecurityGroupIngress:
-      - CidrIp:
-          Ref: InboundTraffic
-        FromPort:
-          Ref: PortNumber
-        ToPort:
-          Ref: PortNumber
+      - CidrIp: !Ref InboundTraffic
+        FromPort: !Ref PortNumber
+        ToPort: !Ref PortNumber
         IpProtocol: tcp
-      VpcId:
-        Ref: VPC
+      VpcId: !Ref VPC
 
 
 Outputs:
