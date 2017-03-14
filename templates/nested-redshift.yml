@@ -101,7 +101,8 @@ Resources:
     Type: AWS::Redshift::ClusterSubnetGroup
     Properties:
       Description: Cluster subnet group
-      SubnetIds: !Ref PublicSubnet
+      SubnetIds:
+      - !Ref PublicSubnet
 
   VPC:
     Type: AWS::EC2::VPC

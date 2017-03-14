@@ -114,6 +114,9 @@
   - name: Output example DataPipeline command
     debug: msg="aws datapipeline list-runs --pipeline-id {{ CFStack.stack_outputs['outPipelineRef'] }}"
 
+  - name: Pause until lambda event is triggered
+    pause: seconds=10
+
   - name: Wait until pipeline shows finished
     action: shell aws datapipeline list-runs --pipeline-id {{ CFStack.stack_outputs['outPipelineRef'] }} --output text | grep -v FINISHED || true
     register: result
